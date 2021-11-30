@@ -729,8 +729,9 @@ def main():
     args, args_text = _parse_args()
 
     if args.log_wandb:
-        if has_wandb:
+        if has_wandb and args.local_rank == 0:
             wandb.init(project=args.experiment, config=args)
+            wandb.run.name = args.model
         else:
             _logger.warning(
                 "You've requested to log metrics to wandb but package not found. "
@@ -1114,7 +1115,7 @@ def main():
                     eval_metrics,
                     os.path.join(output_dir, "summary.csv"),
                     write_header=best_metric is None,
-                    log_wandb=args.log_wandb and has_wandb,
+                    log_wandb=args.log_wandb and has_wandb and args.local_rank == 0,
                 )
 
             if saver is not None:
