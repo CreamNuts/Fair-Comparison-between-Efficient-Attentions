@@ -15,11 +15,12 @@ from .stage import StageTransformer, _cfg
 def sample_orf(num_heads, head_dim, m):
     orf = []
     for _ in range(num_heads):
-        orth = torch.empty(head_dim, m)
+        orth = torch.empty(m, head_dim)
         torch.nn.init.orthogonal_(orth)
         orf.append(orth)
-    orf = torch.cat(orf, 0)
-    return orf * np.sqrt(m)  # H C M
+    orf = torch.stack(orf)
+    # print(f"orf shape: {orf.shape}")
+    return orf * np.sqrt(m)  # H M C
 
 
 class Performer(nn.Module):
@@ -35,31 +36,34 @@ class Performer(nn.Module):
     ):
         super().__init__()
         self.num_heads = num_heads
-        head_dim = dim // num_heads
-        self.scale = head_dim ** -0.25
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim ** -0.25
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
-        self.m = int(dim * kernel_ratio)
+        self.m = int(self.head_dim * kernel_ratio)
         self.w = nn.Parameter(
-            sample_orf(num_heads, head_dim, self.m), requires_grad=False
+            sample_orf(num_heads, self.head_dim, self.m), requires_grad=False
         )  # H C M
         self.epsilon = 1e-8
 
     def kernel(self, x):
         # x = (B, H, N, C)
-        # w = (H, C, M)
+        # w = (H, M, C)
         # return : x : B, H, N, M
         x = x * self.scale
+        # print(f"w: {self.w.shape}")
+        # print(f"x: {x.shape}")
         x = (
-            torch.einsum("bhnc,hcm->bhnm", x, self.w)
-            - repeat((x ** 2).sum(dim=-1), "1 -> 1 1 1 m", m=self.m) / 2
+            torch.einsum("BHNC,HMC->BHNM", x, self.w)
+            - repeat((x ** 2).sum(dim=-1), "B H N -> B H N M", M=self.m) / 2
         )
         return torch.exp(x) / np.sqrt(self.m)
 
     def forward(self, x):
         qkv = rearrange(self.qkv(x), "B N (qkv H C) -> qkv B H N C", qkv=3, H=self.num_heads)
+        # print(f"qkv: {qkv.shape}")
         q, k, v = (
             self.kernel(qkv[0]),
             rearrange(self.kernel(qkv[1]), "B H N M -> B H M N"),
@@ -107,11 +111,9 @@ class PerformerBlock(nn.Module):
         **kwargs,
     ):
         super().__init__()
-        num_tokens = input_resolution[0] * input_resolution[1]
         self.norm1 = norm_layer(dim)
         self.attn = Performer(
             dim,
-            num_tokens,
             num_heads=num_heads,
             qkv_bias=qkv_bias,
             qk_scale=qk_scale,
