@@ -19,7 +19,6 @@ def sample_orf(num_heads, head_dim, m):
         torch.nn.init.orthogonal_(orth)
         orf.append(orth)
     orf = torch.stack(orf)
-    # print(f"orf shape: {orf.shape}")
     return orf * np.sqrt(m)  # H M C
 
 
@@ -45,7 +44,7 @@ class Performer(nn.Module):
         self.m = int(self.head_dim * kernel_ratio)
         self.w = nn.Parameter(
             sample_orf(num_heads, self.head_dim, self.m), requires_grad=False
-        )  # H C M
+        )  # H M C
         self.epsilon = 1e-8
 
     def kernel(self, x):
@@ -53,8 +52,6 @@ class Performer(nn.Module):
         # w = (H, M, C)
         # return : x : B, H, N, M
         x = x * self.scale
-        # print(f"w: {self.w.shape}")
-        # print(f"x: {x.shape}")
         x = (
             torch.einsum("BHNC,HMC->BHNM", x, self.w)
             - repeat((x ** 2).sum(dim=-1), "B H N -> B H N M", M=self.m) / 2
@@ -63,7 +60,6 @@ class Performer(nn.Module):
 
     def forward(self, x):
         qkv = rearrange(self.qkv(x), "B N (qkv H C) -> qkv B H N C", qkv=3, H=self.num_heads)
-        # print(f"qkv: {qkv.shape}")
         q, k, v = (
             self.kernel(qkv[0]),
             rearrange(self.kernel(qkv[1]), "B H N M -> B H M N"),
