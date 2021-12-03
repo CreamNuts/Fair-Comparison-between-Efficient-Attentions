@@ -45,7 +45,7 @@ class Performer(nn.Module):
         self.w = nn.Parameter(
             sample_orf(num_heads, self.head_dim, self.m), requires_grad=False
         )  # H M C
-        self.epsilon = 1e-8
+        self.epsilon = 1e-6
 
     def kernel(self, x):
         # x = (B, H, N, C)
@@ -60,14 +60,14 @@ class Performer(nn.Module):
 
     def forward(self, x):
         qkv = rearrange(self.qkv(x), "B N (qkv H C) -> qkv B H N C", qkv=3, H=self.num_heads)
-        q, k, v = (
+        q, kt, v = (
             self.kernel(qkv[0]),
             rearrange(self.kernel(qkv[1]), "B H N M -> B H M N"),
             qkv[2],
         )
-        D = torch.einsum("BHNM,BHM->BHN", q, k.sum(dim=-1))
+        D = torch.einsum("BHNM,BHM->BHN", q, kt.sum(dim=-1))
         D = repeat(D, "B H N -> B H N C", C=self.head_dim) + self.epsilon
-        ktv = torch.einsum("BHMN,BHNC->BHMC", k, v)
+        ktv = torch.einsum("BHMN,BHNC->BHMC", kt, v)
         x = torch.einsum("BHNM,BHMC->BHNC", q, ktv) / D
         x = rearrange(x, "B H N C -> B N (H C)")
         x = self.proj(x)
