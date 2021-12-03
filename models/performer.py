@@ -53,7 +53,7 @@ class Performer(nn.Module):
         # return : x : B, H, N, M
         x = x * self.scale
         x = (
-            torch.einsum("BHNC,HMC->BHNM", x, self.w)
+            torch.einsum("BHNC,HMC->BHNM", x.float(), self.w)
             - repeat((x ** 2).sum(dim=-1), "B H N -> B H N M", M=self.m) / 2
         )
         return torch.exp(x) / np.sqrt(self.m)
@@ -65,10 +65,11 @@ class Performer(nn.Module):
             rearrange(self.kernel(qkv[1]), "B H N M -> B H M N"),
             qkv[2],
         )
-        D = torch.einsum("BHNM,BHM->BHN", q, kt.sum(dim=-1))
-        D = repeat(D, "B H N -> B H N C", C=self.head_dim) + self.epsilon
-        ktv = torch.einsum("BHMN,BHNC->BHMC", kt, v)
-        x = torch.einsum("BHNM,BHMC->BHNC", q, ktv) / D
+        with torch.cuda.amp.autocast(enabled=False):
+            D = torch.einsum("BHNM,BHM->BHN", q, kt.sum(dim=-1))
+            D = repeat(D, "B H N -> B H N C", C=self.head_dim) + self.epsilon
+            ktv = torch.einsum("BHMN,BHNC->BHMC", kt, v.float())
+            x = torch.einsum("BHNM,BHMC->BHNC", q, ktv) / D
         x = rearrange(x, "B H N C -> B N (H C)")
         x = self.proj(x)
         x = self.proj_drop(x)
