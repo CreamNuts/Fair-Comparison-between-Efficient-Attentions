@@ -9,9 +9,8 @@ from functools import partial
 
 import torch
 import torch.nn as nn
-import torch.utils.checkpoint as checkpoint
 from timm.models import register_model
-from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+from timm.models.layers import DropPath, to_2tuple
 from timm.models.vision_transformer import Mlp
 
 from .stage import StageTransformer, _cfg
@@ -304,7 +303,14 @@ def stage_tiny_swin_p4(pretrained=False, **kwargs):
 
 
 @register_model
-def stage_tiny_swin_p7(pretrained=False, **kwargs):
-    cfg = _cfg(patch_size=7, norm_layer=partial(nn.LayerNorm, eps=1e-6), window_size=7, **kwargs)
+def stage_tiny_swin_p8(pretrained=False, **kwargs):
+    cfg = _cfg(
+        patch_size=8,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6),
+        window_size=7,
+        depths=[2, 2, 8],
+        num_heads=[3, 6, 12],
+        **kwargs,
+    )
     model = StageTransformer(SwinTransformerBlock, **cfg)
     return model

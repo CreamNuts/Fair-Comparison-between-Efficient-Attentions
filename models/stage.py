@@ -12,7 +12,7 @@ from torch import nn
 
 
 def _cfg(**kwargs):
-    return dict(
+    cfg = dict(
         img_size=224,
         # patch_size=4,
         in_chans=3,
@@ -27,8 +27,9 @@ def _cfg(**kwargs):
         # norm_layer=nn.LayerNorm,
         patch_norm=True,
         use_checkpoint=False,
-        **kwargs,
     )
+    cfg.update(kwargs)
+    return cfg
 
 
 class PatchMerging(nn.Module):
