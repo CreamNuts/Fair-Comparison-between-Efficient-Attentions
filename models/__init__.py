@@ -1,4 +1,5 @@
 from .efficient import *
+from .fastformer import *
 from .linformer import *
 from .performer import *
 from .stage import *
