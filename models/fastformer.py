@@ -33,17 +33,17 @@ class FastAttention(nn.Module):
 
         alpha = torch.einsum("BHNC,HC->BHN", q, self.w_q) * self.scale
         alpha = alpha.softmax(dim=-1)
-        global_q = q * rearrange(alpha, "B H N -> B H N 1")
+        global_q = torch.einsum("BHN,BHNC->BHNC", alpha, q)
         global_q = reduce(global_q, "B H N C -> B H C", "sum")
 
-        p = repeat(global_q, "B H C -> B H N C", N=N) * k
+        p = torch.einsum("BHC,BHNC -> BHNC", global_q, k)
         p = self.attn_drop(p)
         beta = torch.einsum("BHNC,HC->BHN", p, self.w_k) * self.scale
         beta = beta.softmax(dim=-1)
-        global_k = k * rearrange(beta, "B H N -> B H N 1")
+        global_k = torch.einsum("BHN,BHNC->BHNC", beta, k)
         global_k = reduce(global_k, "B H N C -> B H C", "sum")
 
-        u = repeat(global_k, "B H C -> B H N C", N=N) * v
+        u = torch.einsum("BHC,BHNC->BHNC", global_k, v)
 
         q = rearrange(q, "B H N C -> B N (H C)")
         u = rearrange(u, "B H N C -> B N (H C)")
