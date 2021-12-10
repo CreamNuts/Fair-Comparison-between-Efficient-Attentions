@@ -5,11 +5,9 @@ import torch
 import torch.nn as nn
 from einops import rearrange, repeat
 from timm.models import register_model
-from timm.models.layers import DropPath
-from timm.models.vision_transformer import Mlp
 from torch import nn
 
-from .stage import StageTransformer, _cfg
+from .stage import Block, StageTransformer, _cfg
 
 
 def sample_orf(num_heads, head_dim, m):
@@ -26,6 +24,7 @@ class Performer(nn.Module):
     def __init__(
         self,
         dim,
+        input_resolution,
         num_heads=8,
         qkv_bias=False,
         qk_scale=None,
@@ -34,6 +33,8 @@ class Performer(nn.Module):
         kernel_ratio=0.5,
     ):
         super().__init__()
+        self.dim = dim
+        self.input_resolution = input_resolution
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
         self.scale = self.head_dim ** -0.25
@@ -75,80 +76,20 @@ class Performer(nn.Module):
         x = self.proj_drop(x)
         return x
 
-
-class PerformerBlock(nn.Module):
-    r"""Performer Block.
-    Args:
-        dim (int): Number of input channels.
-        input_resolution (tuple[int]): Input resulotion.
-        num_heads (int): Number of attention heads.
-        mlp_ratio (float): Ratio of mlp hidden dim to embedding dim.
-        qkv_bias (bool, optional): If True, add a learnable bias to query, key, value. Default: True
-        qk_scale (float | None, optional): Override default qk scale of head_dim ** -0.5 if set.
-        drop (float, optional): Dropout rate. Default: 0.0
-        attn_drop (float, optional): Attention dropout rate. Default: 0.0
-        drop_path (float, optional): Stochastic depth rate. Default: 0.0
-        act_layer (nn.Module, optional): Activation layer. Default: nn.GELU
-        norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm
-    """
-
-    def __init__(
-        self,
-        dim,
-        input_resolution,
-        num_heads,
-        mlp_ratio=4.0,
-        qkv_bias=True,
-        qk_scale=None,
-        drop=0.0,
-        attn_drop=0.0,
-        drop_path=0.0,
-        act_layer=nn.GELU,
-        norm_layer=nn.LayerNorm,
-        **kwargs,
-    ):
-        super().__init__()
-        self.norm1 = norm_layer(dim)
-        self.attn = Performer(
-            dim,
-            num_heads=num_heads,
-            qkv_bias=qkv_bias,
-            qk_scale=qk_scale,
-            attn_drop=attn_drop,
-            proj_drop=drop,
-            **kwargs,
-        )
-
-        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
-        self.norm2 = norm_layer(dim)
-        mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(
-            in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop
-        )
-
-    def forward(self, x):
-        x = x + self.drop_path(self.attn(self.norm1(x)))
-        x = x + self.drop_path(self.mlp(self.norm2(x)))
-        return x
-
-    def extra_repr(self) -> str:
-        return (
-            f"dim={self.dim}, input_resolution={self.input_resolution},"
-            f"num_heads={self.num_heads}, mlp_ratio={self.mlp_ratio}"
-        )
-
     def flops(self):
+        N = self.input_resolution[0] * self.input_resolution[1]
+        # calculate flops for token length of N
         flops = 0
-        H, W = self.input_resolution
-        # norm1
-        flops += self.dim * H * W
-        # FIXME: attn
-        nW = H * W / self.window_size / self.window_size
-        flops += nW * self.attn.flops(self.window_size * self.window_size)
-        # mlp
-        flops += 2 * H * W * self.dim * self.dim * self.mlp_ratio
-        # norm2
-        flops += self.dim * H * W
+        # qkv = self.qkv(x)
+        flops += N * self.dim * 3 * self.dim
+        # 2 kerenl
+        flops += 2 * self.num_heads * N * self.head_dim * self.m
+        # attn = (q @ rearrange(k, "B H N C -> B H C N"))
+        flops += self.num_heads * N * self.head_dim * N
+        # x = rearrange(attn @ v, "B H N C -> B N (H C)")
+        flops += self.num_heads * N * N * self.head_dim
+        # x = self.proj(x)
+        flops += N * self.dim * self.dim
         return flops
 
 
@@ -157,7 +98,7 @@ def stage_tiny_perf_p4(pretrained=False, **kwargs):
     cfg = _cfg(
         patch_size=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), kernel_ratio=0.5, **kwargs
     )
-    model = StageTransformer(PerformerBlock, **cfg)
+    model = StageTransformer(partial(Block, attn_layer=Performer), **cfg)
     return model
 
 
@@ -166,5 +107,5 @@ def stage_tiny_perf_p7(pretrained=False, **kwargs):
     cfg = _cfg(
         patch_size=7, norm_layer=partial(nn.LayerNorm, eps=1e-6), kernel_ratio=0.5, **kwargs
     )
-    model = StageTransformer(PerformerBlock, **cfg)
+    model = StageTransformer(partial(Block, attn_layer=Performer), **cfg)
     return model

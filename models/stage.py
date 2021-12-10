@@ -60,8 +60,8 @@ class PatchMerging(nn.Module):
 
     def flops(self):
         H, W = self.input_resolution
-        flops = H * W * self.dim
-        flops += (H // 2) * (W // 2) * 4 * self.dim * 2 * self.dim
+        flops = H * W * self.dim  # norm
+        flops += (H // 2) * (W // 2) * 4 * self.dim * 2 * self.dim  # reduction
         return flops
 
 
@@ -156,12 +156,21 @@ class PositionalEncodingFourier(nn.Module):
 
 class Attention(nn.Module):
     def __init__(
-        self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0.0, proj_drop=0.0
+        self,
+        dim,
+        input_resolution,
+        num_heads=8,
+        qkv_bias=False,
+        qk_scale=None,
+        attn_drop=0.0,
+        proj_drop=0.0,
     ):
         super().__init__()
+        self.dim = dim
+        self.input_resolution = input_resolution
         self.num_heads = num_heads
-        head_dim = dim // num_heads
-        self.scale = head_dim ** -0.5
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim ** -0.5
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
@@ -182,6 +191,20 @@ class Attention(nn.Module):
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
+
+    def flops(self):
+        N = self.input_resolution[0] * self.input_resolution[1]
+        # calculate flops for token length of N
+        flops = 0
+        # qkv = self.qkv(x)
+        flops += N * self.dim * 3 * self.dim
+        # attn = (q @ rearrange(k, "B H N C -> B H C N"))
+        flops += self.num_heads * N * self.head_dim * N
+        # x = rearrange(attn @ v, "B H N C -> B N (H C)")
+        flops += self.num_heads * N * N * self.head_dim
+        # x = self.proj(x)
+        flops += N * self.dim * self.dim
+        return flops
 
 
 class Block(nn.Module):
@@ -211,14 +234,20 @@ class Block(nn.Module):
         drop=0.0,
         attn_drop=0.0,
         drop_path=0.0,
+        attn_layer=Attention,
         act_layer=nn.GELU,
         norm_layer=nn.LayerNorm,
         **kwargs,
     ):
         super().__init__()
+        self.dim = dim
+        self.input_resolution = input_resolution
+        self.num_heads = num_heads
+        self.mlp_ratio = mlp_ratio
         self.norm1 = norm_layer(dim)
-        self.attn = Attention(
+        self.attn = attn_layer(
             dim,
+            input_resolution,
             num_heads=num_heads,
             qkv_bias=qkv_bias,
             qk_scale=qk_scale,
@@ -250,9 +279,8 @@ class Block(nn.Module):
         H, W = self.input_resolution
         # norm1
         flops += self.dim * H * W
-        # FIXME: attn
-        nW = H * W / self.window_size / self.window_size
-        flops += nW * self.attn.flops(self.window_size * self.window_size)
+        # attn
+        flops += self.attn.flops()
         # mlp
         flops += 2 * H * W * self.dim * self.dim * self.mlp_ratio
         # norm2
@@ -486,16 +514,19 @@ class StageTransformer(nn.Module):
     def flops(self):
         flops = 0
         flops += self.patch_embed.flops()
+        # stage
         for i, layer in enumerate(self.layers):
             flops += layer.flops()
+        # norm
         flops += (
             self.num_features
             * self.patches_resolution[0]
             * self.patches_resolution[1]
             // (2 ** self.num_layers)
         )
+        # head
         flops += self.num_features * self.num_classes
-        return
+        return flops
 
 
 @register_model
