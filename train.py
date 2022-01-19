@@ -44,6 +44,8 @@ from timm.utils import *
 from timm.utils import ApexScaler, NativeScaler
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
 
+from utils import update_summary
+
 try:
     from apex import amp
     from apex.parallel import DistributedDataParallel as ApexDDP
@@ -1116,7 +1118,10 @@ def main():
                     os.path.join(output_dir, "summary.csv"),
                     write_header=best_metric is None,
                     log_wandb=args.log_wandb and has_wandb and args.local_rank == 0,
+                    resume=args.resume,
                 )
+                if args.resume != "":
+                    args.resume = ""
 
             if saver is not None:
                 # save proper checkpoint with eval metric
