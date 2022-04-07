@@ -38,10 +38,10 @@ class Performer(nn.Module):
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
         self.scale = self.head_dim ** -0.25
+
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
-
         self.m = int(self.head_dim * kernel_ratio)
         self.w = nn.Parameter(
             sample_orf(num_heads, self.head_dim, self.m), requires_grad=False

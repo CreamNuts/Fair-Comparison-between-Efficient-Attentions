@@ -31,13 +31,13 @@ class EfficientAttention(nn.Module):
 
     def forward(self, x):
         qkv = rearrange(self.qkv(x), "B N (qkv H C) -> qkv B H N C", qkv=3, H=self.num_heads)
-        q, k, v = [
+        q, kt, v = [
             qkv[0].softmax(dim=-1),  # B H N C
             rearrange(qkv[1], "B H N C -> B H C N").softmax(dim=-1),
             qkv[2],  # B H N C
         ]  # make torchscript happy (cannot use tensor as tuple)
 
-        context = k @ v
+        context = kt @ v
         context = self.attn_drop(context)
 
         x = rearrange(q @ context, "B H N C -> B N (H C)")
@@ -51,7 +51,7 @@ class EfficientAttention(nn.Module):
         flops = 0
         # qkv = self.qkv(x)
         flops += N * self.dim * 3 * self.dim
-        # context = k @ v
+        # context = kt @ v
         flops += self.num_heads * self.head_dim * N * self.head_dim
         # x = rearrange(q @ context, "B H N C -> B N (H C)")
         flops += self.num_heads * N * self.head_dim * self.head_dim

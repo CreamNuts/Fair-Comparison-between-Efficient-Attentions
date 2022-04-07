@@ -72,12 +72,22 @@ class XCA(nn.Module):
     """
 
     def __init__(
-        self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0.0, proj_drop=0.0
+        self,
+        dim,
+        input_resolution,
+        num_heads=8,
+        qkv_bias=False,
+        qk_scale=None,
+        attn_drop=0.0,
+        proj_drop=0.0,
     ):
         super().__init__()
+        self.dim = dim
+        self.input_resolution = input_resolution
         self.num_heads = num_heads
-        self.temperature = nn.Parameter(torch.ones(num_heads, 1, 1))
+        self.head_dim = dim // num_heads
 
+        self.temperature = nn.Parameter(torch.ones(num_heads, 1, 1))
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
@@ -85,20 +95,33 @@ class XCA(nn.Module):
 
     def forward(self, x):
         qkv = rearrange(self.qkv(x), "B N (qkv H C) -> qkv B H C N", qkv=3, H=self.num_heads)
-        q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
+        qt, kt, vt = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
 
-        q = torch.nn.functional.normalize(q, dim=-1)
-        k = torch.nn.functional.normalize(k, dim=-1)
+        qt = torch.nn.functional.normalize(qt, dim=-1)
+        k = rearrange(torch.nn.functional.normalize(kt, dim=-1), "B H C N -> B H N C")
 
-        attn = (q @ k.transpose(-2, -1)) * self.temperature
+        attn = qt @ k * self.temperature  # B H C C
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
 
-        x = rearrange((attn @ v), "B H C N -> B N (H C)")
-        # x = (attn @ v).permute(0, 3, 1, 2).reshape(B, N, C)
+        x = rearrange(attn @ vt, "B H C N -> B N (H C)")
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
+
+    def flops(self):
+        N = self.input_resolution[0] * self.input_resolution[1]
+        # calculate flops for token length of N
+        flops = 0
+        # qkv = self.qkv(x)
+        flops += N * self.dim * 3 * self.dim
+        # attn = qt @ k * self.temperature
+        flops += N * self.num_heads * self.head_dim * self.head_dim
+        # x = rearrange(attn @ vt, "B H C N -> B N (H C)")
+        flops += N * self.num_heads * self.head_dim * self.head_dim
+        # x = self.proj(x)
+        flops += N * self.dim * self.dim
+        return flops
 
     @torch.jit.ignore
     def no_weight_decay(self):
@@ -126,6 +149,7 @@ class XCABlock(nn.Module):
         self.norm1 = norm_layer(dim)
         self.attn = XCA(
             dim,
+            input_resolution,
             num_heads=num_heads,
             qkv_bias=qkv_bias,
             qk_scale=qk_scale,

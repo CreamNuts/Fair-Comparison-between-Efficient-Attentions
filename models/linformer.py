@@ -39,13 +39,13 @@ class LinAttention(nn.Module):
     def forward(self, x):
         # B, N, C = x.shape
         qkv = rearrange(self.qkv(x), "B N (qkv H C) -> qkv B H C N", qkv=3, H=self.num_heads)
-        q, k, v = [
+        q, kt, v = [
             rearrange(qkv[0], "B H C N -> B H N C"),
             self.proj_kv(qkv[1]),  # B H C K
             rearrange(self.proj_kv(qkv[2]), "B H C K -> B H K C"),
         ]  # make torchscript happy (cannot use tensor as tuple)
 
-        attn = (q @ k) * self.scale
+        attn = (q @ kt) * self.scale
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
 
@@ -63,7 +63,7 @@ class LinAttention(nn.Module):
         flops += N * self.dim * 3 * self.dim
         # self.proj_kv(qkv[1]), self.proj_kv(qkv[2])
         flops += 2 * self.num_heads * self.head_dim * N * N // self.kv_tokens_ratio
-        # attn = (q @ k)
+        # attn = (q @ kt)
         flops += self.num_heads * N * self.head_dim * N // self.kv_tokens_ratio
         # x = rearrange(attn @ v, "B H N C -> B N (H C)")
         flops += self.num_heads * N * N // self.kv_tokens_ratio * self.head_dim
