@@ -146,7 +146,7 @@ class ReducedXCA(nn.Module):
         self.input_resolution = input_resolution
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
-        self.scale = self.head_dim ** -0.5
+        self.scale = (self.input_resolution[0] * self.input_resolution[1]) ** -0.5
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
