@@ -60,20 +60,7 @@ class FastAttention(nn.Module):
         return x
 
     def flops(self):
-        N = self.input_resolution[0] * self.input_resolution[1]
-        # calculate flops for token length of N
-        flops = 0
-        # qkv = self.qkv(x)
-        flops += N * self.dim * 3 * self.dim
-        # alpha, beta
-        flops += 2 * N * self.num_heads * self.head_dim
-        # globa_q, global_k
-        flops += 2 * N * self.num_heads * self.head_dim
-        # p, u
-        flops += 2 * N * self.num_heads * self.head_dim
-        # x = self.proj(u)
-        flops += N * self.dim * self.dim
-        return flops
+        return NotImplementedError
 
 
 @register_model

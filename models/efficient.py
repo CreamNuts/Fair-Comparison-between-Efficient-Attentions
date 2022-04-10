@@ -45,7 +45,7 @@ class EfficientAttention(nn.Module):
         x = self.proj_drop(x)
         return x
 
-    def flops(self):
+    def flops(self): #O(NC^2)
         N = self.input_resolution[0] * self.input_resolution[1]
         # calculate flops for token length of N
         flops = 0

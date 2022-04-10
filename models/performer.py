@@ -76,7 +76,7 @@ class Performer(nn.Module):
         x = self.proj_drop(x)
         return x
 
-    def flops(self):
+    def flops(self):  # O(NmC) + O(NC^2)[proj]
         N = self.input_resolution[0] * self.input_resolution[1]
         # calculate flops for token length of N
         flops = 0
@@ -84,10 +84,10 @@ class Performer(nn.Module):
         flops += N * self.dim * 3 * self.dim
         # 2 kerenl
         flops += 2 * self.num_heads * N * self.head_dim * self.m
-        # attn = (q @ rearrange(k, "B H N C -> B H C N"))
-        flops += self.num_heads * N * self.head_dim * N
-        # x = rearrange(attn @ v, "B H N C -> B N (H C)")
-        flops += self.num_heads * N * N * self.head_dim
+        # ktv = torch.einsum("BHMN,BHNC->BHMC", kt, v.float())
+        flops += self.num_heads * N * self.head_dim * self.m
+        # x = torch.einsum("BHNM,BHMC->BHNC", q, ktv) / D
+        flops += self.num_heads * N * self.head_dim * self.m
         # x = self.proj(x)
         flops += N * self.dim * self.dim
         return flops

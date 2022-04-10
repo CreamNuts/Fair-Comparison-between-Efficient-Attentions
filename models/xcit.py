@@ -13,7 +13,7 @@ from timm.models.layers import DropPath
 from timm.models.vision_transformer import Mlp
 from torch import nn
 
-from .stage import StageTransformer, _cfg
+from .stage import Block, StageTransformer, _cfg
 
 
 class LPI(nn.Module):
@@ -128,6 +128,52 @@ class XCA(nn.Module):
         return {"temperature"}
 
 
+class ReducedXCA(nn.Module):
+    """Reduce version of XCA for fair comparision"""
+
+    def __init__(
+        self,
+        dim,
+        input_resolution,
+        num_heads=8,
+        qkv_bias=False,
+        qk_scale=None,
+        attn_drop=0.0,
+        proj_drop=0.0,
+    ):
+        super().__init__()
+        self.dim = dim
+        self.input_resolution = input_resolution
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim ** -0.5
+
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj = nn.Linear(dim, dim)
+        self.proj_drop = nn.Dropout(proj_drop)
+
+    def forward(self, x):
+        qkv = rearrange(self.qkv(x), "B N (qkv H C) -> qkv B H C N", qkv=3, H=self.num_heads)
+        qt, k, vt = (
+            qkv[0],
+            rearrange(qkv[1], "B H C N -> B H N C"),
+            qkv[2],
+        )  # make torchscript happy (cannot use tensor as tuple)
+
+        attn = qt @ k * self.scale  # B H C C
+        attn = attn.softmax(dim=-1)
+        attn = self.attn_drop(attn)
+
+        x = rearrange(attn @ vt, "B H C N -> B N (H C)")
+        x = self.proj(x)
+        x = self.proj_drop(x)
+        return x
+
+    def flops(self):
+        return NotImplementedError
+
+
 class XCABlock(nn.Module):
     def __init__(
         self,
@@ -212,4 +258,18 @@ def stage_tiny_xcit_p7_no_lpi(pretrained=False, **kwargs):
         patch_size=7, norm_layer=partial(nn.LayerNorm, eps=1e-6), eta=1.0, lpi_flag=False, **kwargs
     )
     model = StageTransformer(XCABlock, **cfg)
+    return model
+
+
+@register_model
+def stage_tiny_xca_p4(pretrained=False, **kwargs):
+    cfg = _cfg(patch_size=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    model = StageTransformer(partial(Block, attn_layer=ReducedXCA), **cfg)
+    return model
+
+
+@register_model
+def stage_tiny_xca_p7(pretrained=False, **kwargs):
+    cfg = _cfg(patch_size=7, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    model = StageTransformer(partial(Block, attn_layer=ReducedXCA), **cfg)
     return model
