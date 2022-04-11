@@ -13,7 +13,7 @@ from timm.models import register_model
 from timm.models.layers import DropPath, to_2tuple
 from timm.models.vision_transformer import Mlp
 
-from .stage import StageTransformer, _cfg
+from .base import StageTransformer, _cfg_pyramid
 
 
 def window_partition(x, window_size):
@@ -297,20 +297,15 @@ class SwinTransformerBlock(nn.Module):
 
 @register_model
 def stage_tiny_swin_p4(pretrained=False, **kwargs):
-    cfg = _cfg(patch_size=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), window_size=7, **kwargs)
+    cfg = _cfg_pyramid(patch_size=4, window_size=7, **kwargs)
     model = StageTransformer(SwinTransformerBlock, **cfg)
     return model
 
 
 @register_model
 def stage_tiny_swin_p8(pretrained=False, **kwargs):
-    cfg = _cfg(
-        patch_size=8,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        window_size=7,
-        depths=[2, 2, 8],
-        num_heads=[3, 6, 12],
-        **kwargs,
+    cfg = _cfg_pyramid(
+        patch_size=8, window_size=7, depths=[2, 2, 8], num_heads=[3, 6, 12], **kwargs
     )
     model = StageTransformer(SwinTransformerBlock, **cfg)
     return model

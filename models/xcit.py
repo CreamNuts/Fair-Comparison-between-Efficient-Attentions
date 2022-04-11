@@ -13,7 +13,7 @@ from timm.models.layers import DropPath
 from timm.models.vision_transformer import Mlp
 from torch import nn
 
-from .stage import Block, StageTransformer, _cfg
+from .base import Block, StageTransformer, _cfg_pyramid
 
 
 class LPI(nn.Module):
@@ -231,45 +231,41 @@ class XCABlock(nn.Module):
 
 @register_model
 def stage_tiny_xcit_p4(pretrained=False, **kwargs):
-    cfg = _cfg(patch_size=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), eta=1.0, **kwargs)
+    cfg = _cfg_pyramid(patch_size=4, eta=1.0, **kwargs)
     model = StageTransformer(XCABlock, **cfg)
     return model
 
 
 @register_model
 def stage_tiny_xcit_p4_no_lpi(pretrained=False, **kwargs):
-    cfg = _cfg(
-        patch_size=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), eta=1.0, lpi_flag=False, **kwargs
-    )
+    cfg = _cfg_pyramid(patch_size=4, eta=1.0, lpi_flag=False, **kwargs)
     model = StageTransformer(XCABlock, **cfg)
     return model
 
 
 @register_model
 def stage_tiny_xcit_p7(pretrained=False, **kwargs):
-    cfg = _cfg(patch_size=7, norm_layer=partial(nn.LayerNorm, eps=1e-6), eta=1.0, **kwargs)
+    cfg = _cfg_pyramid(patch_size=7, eta=1.0, **kwargs)
     model = StageTransformer(XCABlock, **cfg)
     return model
 
 
 @register_model
 def stage_tiny_xcit_p7_no_lpi(pretrained=False, **kwargs):
-    cfg = _cfg(
-        patch_size=7, norm_layer=partial(nn.LayerNorm, eps=1e-6), eta=1.0, lpi_flag=False, **kwargs
-    )
+    cfg = _cfg_pyramid(patch_size=7, eta=1.0, lpi_flag=False, **kwargs)
     model = StageTransformer(XCABlock, **cfg)
     return model
 
 
 @register_model
 def stage_tiny_xca_p4(pretrained=False, **kwargs):
-    cfg = _cfg(patch_size=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    cfg = _cfg_pyramid(patch_size=4, **kwargs)
     model = StageTransformer(partial(Block, attn_layer=ReducedXCA), **cfg)
     return model
 
 
 @register_model
 def stage_tiny_xca_p7(pretrained=False, **kwargs):
-    cfg = _cfg(patch_size=7, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    cfg = _cfg_pyramid(patch_size=7, **kwargs)
     model = StageTransformer(partial(Block, attn_layer=ReducedXCA), **cfg)
     return model

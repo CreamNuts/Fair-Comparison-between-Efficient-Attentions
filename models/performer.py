@@ -7,7 +7,7 @@ from einops import rearrange, repeat
 from timm.models import register_model
 from torch import nn
 
-from .stage import Block, StageTransformer, _cfg
+from .base import Block, StageTransformer, _cfg_pyramid
 
 
 def sample_orf(num_heads, head_dim, m):
@@ -95,17 +95,13 @@ class Performer(nn.Module):
 
 @register_model
 def stage_tiny_perf_p4(pretrained=False, **kwargs):
-    cfg = _cfg(
-        patch_size=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), kernel_ratio=0.5, **kwargs
-    )
+    cfg = _cfg_pyramid(patch_size=4, kernel_ratio=0.5, **kwargs)
     model = StageTransformer(partial(Block, attn_layer=Performer), **cfg)
     return model
 
 
 @register_model
 def stage_tiny_perf_p7(pretrained=False, **kwargs):
-    cfg = _cfg(
-        patch_size=7, norm_layer=partial(nn.LayerNorm, eps=1e-6), kernel_ratio=0.5, **kwargs
-    )
+    cfg = _cfg_pyramid(patch_size=7, kernel_ratio=0.5, **kwargs)
     model = StageTransformer(partial(Block, attn_layer=Performer), **cfg)
     return model

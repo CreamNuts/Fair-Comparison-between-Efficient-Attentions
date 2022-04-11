@@ -5,7 +5,7 @@ from einops import rearrange, reduce
 from timm.models import register_model
 from torch import nn
 
-from .stage import Block, StageTransformer, _cfg
+from .base import Block, StageTransformer, _cfg_pyramid
 
 
 class FastAttention(nn.Module):
@@ -65,13 +65,13 @@ class FastAttention(nn.Module):
 
 @register_model
 def stage_tiny_fast_p4(pretrained=False, **kwargs):
-    cfg = _cfg(patch_size=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    cfg = _cfg_pyramid(patch_size=4, **kwargs)
     model = StageTransformer(partial(Block, attn_layer=FastAttention), **cfg)
     return model
 
 
 @register_model
 def stage_tiny_fast_p7(pretrained=False, **kwargs):
-    cfg = _cfg(patch_size=7, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    cfg = _cfg_pyramid(patch_size=7, **kwargs)
     model = StageTransformer(partial(Block, attn_layer=FastAttention), **cfg)
     return model
