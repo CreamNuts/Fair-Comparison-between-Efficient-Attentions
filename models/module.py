@@ -126,3 +126,56 @@ class PositionalEncodingFourier(nn.Module):
         pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
         pos = self.token_projection(pos)
         return pos  # B C H W
+
+
+class ResLPI(nn.Module):
+    """
+    Local Patch Interaction module that allows explicit communication between tokens in 3x3 windows
+    to augment the implicit communcation performed by the block diagonal scatter attention.
+    Implemented using 2 layers of separable 3x3 convolutions with GeLU and BatchNorm2d
+    """
+
+    def __init__(
+        self,
+        in_features,
+        hidden_features=None,
+        input_resolution=None,
+        out_features=None,
+        act_layer=nn.GELU,
+        drop=0.0,
+        kernel_size=3,
+        norm_layer=nn.LayerNorm,
+    ):
+        super().__init__()
+        out_features = out_features or in_features
+
+        padding = kernel_size // 2
+        self.H, self.W = input_resolution
+        self.norm = norm_layer(in_features)
+        self.conv1 = nn.Conv2d(
+            in_features,
+            out_features,
+            kernel_size=kernel_size,
+            padding=padding,
+            groups=out_features,
+        )
+        self.act = act_layer()
+        self.bn = nn.SyncBatchNorm(in_features)
+        self.conv2 = nn.Conv2d(
+            in_features,
+            out_features,
+            kernel_size=kernel_size,
+            padding=padding,
+            groups=out_features,
+        )
+
+    def forward(self, x):
+        res = x
+        x = self.norm(x)
+        x = rearrange(x, "B (H W) C -> B C H W", H=self.H, W=self.W)
+        x = self.conv1(x)
+        x = self.act(x)
+        x = self.bn(x)
+        x = self.conv2(x)
+        x = rearrange(x, "B C H W -> B (H W) C", H=self.H, W=self.W)
+        return res + x

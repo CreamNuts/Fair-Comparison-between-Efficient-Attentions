@@ -14,6 +14,7 @@ from timm.models.vision_transformer import Mlp
 from torch import nn
 
 from .base import Block, StageTransformer, _cfg_pyramid
+from .module import ResLPI
 
 
 class LPI(nn.Module):
@@ -265,7 +266,21 @@ def stage_tiny_xca_p4(pretrained=False, **kwargs):
 
 
 @register_model
+def stage_tiny_xca_lpi_p4(pretrained=False, **kwargs):
+    cfg = _cfg_pyramid(patch_size=4, lpi_layer=ResLPI, **kwargs)
+    model = StageTransformer(partial(Block, attn_layer=ReducedXCA), **cfg)
+    return model
+
+
+@register_model
 def stage_tiny_xca_p7(pretrained=False, **kwargs):
     cfg = _cfg_pyramid(patch_size=7, **kwargs)
+    model = StageTransformer(partial(Block, attn_layer=ReducedXCA), **cfg)
+    return model
+
+
+@register_model
+def stage_tiny_xca_lpi_p7(pretrained=False, **kwargs):
+    cfg = _cfg_pyramid(patch_size=7, lpi_layer=ResLPI, **kwargs)
     model = StageTransformer(partial(Block, attn_layer=ReducedXCA), **cfg)
     return model

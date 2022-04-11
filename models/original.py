@@ -1,3 +1,5 @@
+from functools import partial
+
 from einops import rearrange
 from timm.models import register_model
 from torch import nn
@@ -67,40 +69,40 @@ class Attention(nn.Module):
 @register_model
 def stage_tiny_p4(pretrained=False, **kwargs):
     cfg = _cfg_pyramid(patch_size=4, **kwargs)
-    model = StageTransformer(Block, **cfg)
+    model = StageTransformer(partial(Block, attn_layer=Attention), **cfg)
     return model
 
 
 @register_model
 def stage_tiny_p7(pretrained=False, **kwargs):
     cfg = _cfg_pyramid(patch_size=7, **kwargs)
-    model = StageTransformer(Block, **cfg)
+    model = StageTransformer(partial(Block, attn_layer=Attention), **cfg)
     return model
 
 
 @register_model
 def column_small_p4(pretrained=False, **kwargs):
     cfg = _cfg_columnar(patch_size=4, **kwargs)
-    model = ColumnarTransformer(Block, **cfg)
+    model = ColumnarTransformer(partial(Block, attn_layer=Attention), **cfg)
     return model
 
 
 @register_model
 def column_small_p7(pretrained=False, **kwargs):
     cfg = _cfg_columnar(patch_size=7, **kwargs)
-    model = ColumnarTransformer(Block, **cfg)
+    model = ColumnarTransformer(partial(Block, attn_layer=Attention), **cfg)
     return model
 
 
 @register_model
 def column_small_p14(pretrained=False, **kwargs):
     cfg = _cfg_columnar(patch_size=14, **kwargs)
-    model = ColumnarTransformer(Block, **cfg)
+    model = ColumnarTransformer(partial(Block, attn_layer=Attention), **cfg)
     return model
 
 
 @register_model
 def column_small_p16(pretrained=False, **kwargs):
     cfg = _cfg_columnar(patch_size=16, **kwargs)
-    model = ColumnarTransformer(Block, **cfg)
+    model = ColumnarTransformer(partial(Block, attn_layer=Attention), **cfg)
     return model

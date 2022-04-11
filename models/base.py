@@ -25,6 +25,7 @@ def _cfg_pyramid(**kwargs):
         attn_drop_rate=0,
         patch_norm=True,
         use_checkpoint=False,
+        lpi_layer=nn.Identity,
     )
     cfg.update(kwargs)
     return cfg
@@ -38,11 +39,13 @@ def _cfg_columnar(**kwargs):
         depths=[2, 2, 6, 2],
         num_heads=[12, 12, 12, 12],
         mlp_ratio=4,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6),
         qkv_bias=True,
         qk_scale=None,
         attn_drop_rate=0,
         patch_norm=True,
         use_checkpoint=False,
+        lpi_layer=nn.Identity,
     )
     cfg.update(kwargs)
     return cfg
@@ -78,6 +81,7 @@ class Block(nn.Module):
         attn_layer=None,
         act_layer=nn.GELU,
         norm_layer=nn.LayerNorm,
+        lpi_layer=nn.Identity,
         **kwargs,
     ):
         super().__init__()
@@ -103,9 +107,16 @@ class Block(nn.Module):
         self.mlp = Mlp(
             in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop
         )
+        self.lpi = lpi_layer(
+            in_features=dim,
+            act_layer=act_layer,
+            input_resolution=input_resolution,
+            norm_layer=norm_layer,
+        )
 
     def forward(self, x):
         x = x + self.drop_path(self.attn(self.norm1(x)))
+        x = self.lpi(x)
         x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x
 
@@ -162,6 +173,7 @@ class BasicLayer(nn.Module):
         attn_drop=0.0,
         drop_path=0.0,
         norm_layer=nn.LayerNorm,
+        lpi_layer=nn.Identity,
         downsample=None,
         use_checkpoint=False,
         **kwargs,
@@ -187,6 +199,7 @@ class BasicLayer(nn.Module):
                     attn_drop=attn_drop,
                     drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
                     norm_layer=norm_layer,
+                    lpi_layer=lpi_layer,
                     **kwargs,
                 )
                 for i in range(depth)
