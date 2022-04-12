@@ -1,0 +1,21 @@
+name: efficient
+channels:
+- conda-forge
+- pytorch
+dependencies:
+- psutil
+- conda-forge::gputil
+- scikit-learn
+- matplotlib
+- numpy
+- conda-forge::quadprog
+- wandb
+- conda-forge::pycocotools
+- pip
+- python=3.9
+- pytorch::pytorch>=1.10
+- pytorch::torchvision
+- pytorch::torchaudio
+- pip:
+    - timm
+    - einops
