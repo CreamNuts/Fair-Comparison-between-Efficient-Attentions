@@ -298,6 +298,15 @@ class SwinTransformerBlock(nn.Module):
 @register_model
 def stage_tiny_swin_p4(pretrained=False, **kwargs):
     cfg = _cfg_pyramid(patch_size=4, window_size=7, **kwargs)
+    cfg.pop("lpi_layer", None)
+    model = StageTransformer(SwinTransformerBlock, **cfg)
+    return model
+
+
+@register_model
+def stage_tiny_swin_p7(pretrained=False, **kwargs):
+    cfg = _cfg_pyramid(patch_size=7, window_size=8, **kwargs)
+    cfg.pop("lpi_layer", None)
     model = StageTransformer(SwinTransformerBlock, **cfg)
     return model
 
@@ -307,5 +316,6 @@ def stage_tiny_swin_p8(pretrained=False, **kwargs):
     cfg = _cfg_pyramid(
         patch_size=8, window_size=7, depths=[2, 2, 8], num_heads=[3, 6, 12], **kwargs
     )
+    cfg.pop("lpi_layer", None)
     model = StageTransformer(SwinTransformerBlock, **cfg)
     return model

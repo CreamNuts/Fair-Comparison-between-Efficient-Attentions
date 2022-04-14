@@ -173,7 +173,6 @@ class BasicLayer(nn.Module):
         attn_drop=0.0,
         drop_path=0.0,
         norm_layer=nn.LayerNorm,
-        lpi_layer=nn.Identity,
         downsample=None,
         use_checkpoint=False,
         **kwargs,
@@ -199,7 +198,6 @@ class BasicLayer(nn.Module):
                     attn_drop=attn_drop,
                     drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
                     norm_layer=norm_layer,
-                    lpi_layer=lpi_layer,
                     **kwargs,
                 )
                 for i in range(depth)

@@ -95,6 +95,13 @@ def column_small_p7(pretrained=False, **kwargs):
 
 
 @register_model
+def column_small_p8(pretrained=False, **kwargs):
+    cfg = _cfg_columnar(patch_size=8, **kwargs)
+    model = ColumnarTransformer(partial(Block, attn_layer=Attention), **cfg)
+    return model
+
+
+@register_model
 def column_small_p14(pretrained=False, **kwargs):
     cfg = _cfg_columnar(patch_size=14, **kwargs)
     model = ColumnarTransformer(partial(Block, attn_layer=Attention), **cfg)
