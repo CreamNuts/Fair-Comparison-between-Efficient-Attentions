@@ -1,5 +1,5 @@
 # Fair Comparison between Efficient Attentions
-This implementation is ans official code on the paper [*Fair Comparison between Efficient Attentions*]() in *CVPR 2022 Workshop on Attention and Transformers in Vision*. In paper, we validated pyramid architecture with efficient attentions on ImageNet-1K. 
+This implementation is ans official code on the paper [*Fair Comparison between Efficient Attentions*](https://arxiv.org/abs/2206.00244) in [*CVPR 2022 Workshop on Attention and Transformers in Vision*](https://sites.google.com/view/t4v-cvpr22). In paper, we validated pyramid architecture with efficient attentions on ImageNet-1K. 
 
 ![poster](./poster.jpg)
 
