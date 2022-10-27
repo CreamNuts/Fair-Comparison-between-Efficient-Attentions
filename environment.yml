@@ -17,5 +17,5 @@ dependencies:
 - pytorch::torchvision
 - pytorch::torchaudio
 - pip:
-    - timm
+    - timm=0.5.4
     - einops
